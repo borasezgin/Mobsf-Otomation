@@ -24,6 +24,7 @@ This repository contains a Python-based automation script that interacts with th
 git clone https://github.com/borasezgin/mobsf-auto-scan.git
 cd mobsf-auto-scan
 
+```bash
 2. **Configure Environment**
 
 Create a .env file in the root directory and add the following:
