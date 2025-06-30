@@ -21,7 +21,7 @@ This repository contains a Python-based automation script that interacts with th
 1. **Clone this repository**
 
 ```bash
-git clone https://github.com/yourusername/mobsf-auto-scan.git
+git clone https://github.com/borasezgin/mobsf-auto-scan.git
 cd mobsf-auto-scan
 
 
