@@ -1,0 +1,225 @@
+import os
+import re
+import time
+import requests
+from datetime import datetime
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+API_KEY = os.getenv("API_KEY")
+UPLOAD_URL = os.getenv("UPLOAD_URL")
+SCAN_URL = os.getenv("SCAN_URL")
+PDF_URL = os.getenv("PDF_URL")
+DELETE_URL = os.getenv("DELETE_URL")
+SMTP_SERVER = os.getenv("SMTP_SERVER")
+SMTP_PORT = int(os.getenv("SMTP_PORT"))
+EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT")
+SCAN_DIRECTORY = os.getenv("SCAN_DIRECTORY")
+REPORTS_DIRECTORY = os.getenv("REPORTS_DIRECTORY")
+
+
+def upload_file(file_path):
+    try:
+        with open(file_path, 'rb') as file:
+            files = {'file': (os.path.basename(file_path), file, 'application/octet-stream')}
+            headers = {'X-Mobsf-Api-Key': API_KEY}
+            response = requests.post(UPLOAD_URL, files=files, headers=headers)
+            response_data = response.json()
+            if response.status_code == 200 and 'hash' in response_data:
+                print(f"File {file_path} uploaded successfully. Hash: {response_data['hash']}")
+                return response_data['hash']
+            else:
+                print(f"Error uploading file {file_path}: {response_data}")
+                return None
+    except Exception as e:
+        print(f"Exception during file upload for {file_path}: {e}")
+        return None
+
+
+def scan_file(file_hash):
+    try:
+        headers = {'Authorization': API_KEY}
+        data = {'hash': file_hash}
+        response = requests.post(SCAN_URL, headers=headers, data=data)
+        if response.status_code == 200:
+            print(f"Scan completed for hash {file_hash}.")
+            return response.json()
+        else:
+            print(f"Error scanning file with hash {file_hash}: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Exception during scan for hash {file_hash}: {e}")
+        return None
+def download_pdf(file_hash, file_name):
+    try:
+        headers = {'Authorization': API_KEY}
+        data = {'hash': file_hash}
+        response = requests.post(PDF_URL, headers=headers, data=data)
+        if response.status_code == 200:
+            today_date = datetime.now().strftime("%d-%m-%Y")
+            output_dir = os.path.join(REPORTS_DIRECTORY, today_date)
+            os.makedirs(output_dir, exist_ok=True)
+            output_file = os.path.join(output_dir, f"{os.path.splitext(file_name)[0]}.pdf")
+            with open(output_file, 'wb') as pdf_file:
+                pdf_file.write(response.content)
+            print(f"PDF report saved: {output_file}")
+            return output_file
+        else:
+            print(f"Error downloading PDF report for hash {file_hash}: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Exception during PDF download for hash {file_hash}: {e}")
+        return None
+
+
+def delete_old_scans(hash_file):
+    try:
+        if os.path.exists(hash_file):
+            with open(hash_file, 'r') as file:
+                hashes = file.readlines()
+            for file_hash in hashes:
+                file_hash = file_hash.strip()
+                headers = {'Authorization': API_KEY}
+                data = {'hash': file_hash}
+                response = requests.post(DELETE_URL, headers=headers, data=data)
+                if response.status_code == 200:
+                    print(f"Deleted scan for hash: {file_hash}")
+                else:
+                    print(f"Error deleting scan for hash {file_hash}: {response.text}")
+            os.remove(hash_file)
+        else:
+            print("No hash file found to clean up old scans.")
+    except Exception as e:
+        print(f"Exception during old scan deletion: {e}")
+
+
+def send_email(report_files):
+    try:
+        msg = MIMEMultipart()
+        msg['Subject'] = f"Tarama Raporu ({datetime.now().strftime('%d.%m.%Y')})"
+        msg['From'] = EMAIL_SENDER
+        msg['To'] = EMAIL_RECIPIENT
+
+
+        body = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f9;
+                    padding: 20px;
+                    margin: 0;
+                }}
+                h2 {{
+                    color: #333;
+                    text-align: center;
+                    font-size: 24px;
+                    margin-bottom: 20px;
+                }}
+                .content {{
+                    background-color: #ffffff;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                    margin: 0 auto;
+                    max-width: 600px;
+                }}
+                p {{
+                    font-size: 16px;
+                    color: #555;
+                    line-height: 1.5;
+                }}
+                .date {{
+                    font-weight: bold;
+                    color: #007bff;
+                }}
+                .footer {{
+                    font-size: 12px;
+                    color: #777;
+                    text-align: center;
+                    margin-top: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <h2>MOBSF Aylık Tarama Raporları</h2>
+            <div class="content">
+                <p><span class="date">{datetime.now().strftime('%d.%m.%Y')}</span> tarihli mobil uygulama taramaları tamamlanmıştır.</p>
+                <p>Raporlar ekte bulunmaktadır.</p>
+            </div>
+            <div class="footer">
+                <p>Bu mesaj otomatik olarak gönderilmiştir. Lütfen yanıt vermeyiniz.</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        msg.attach(MIMEText(body, 'html'))
+
+        for report in report_files:
+            with open(report, 'rb') as file:
+                part = MIMEBase('application', 'pdf')
+                part.set_payload(file.read())
+                encoders.encode_base64(part)
+
+                # Dosya adını temizle
+                file_name = os.path.basename(report)
+                safe_file_name = re.sub(r'[^a-zA-Z0-9_.]', '_', file_name)
+
+                # Ek başlıkları düzelt
+                part.add_header('Content-Disposition', f'attachment; filename="{safe_file_name}"')
+                part.add_header('Content-Type', f'application/pdf; name="{safe_file_name}"')
+
+                msg.attach(part)
+
+        # E-posta gönderimi
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.sendmail(msg['From'], msg['To'], msg.as_string())
+
+        print("Email sent successfully.")
+    except Exception as e:
+                        print(f"Exception during email sending: {e}")
+
+
+def main():
+    hash_file = os.path.join(REPORTS_DIRECTORY, "hashes.txt")
+    delete_old_scans(hash_file)
+
+    report_files = []
+
+    with open(hash_file, 'w') as hash_log:
+        for file_name in os.listdir(SCAN_DIRECTORY):
+            if file_name.endswith(".apk"):
+                file_path = os.path.join(SCAN_DIRECTORY, file_name)
+                print(f"Processing file: {file_path}")
+
+                file_hash = upload_file(file_path)
+                if not file_hash:
+                    continue
+
+                hash_log.write(file_hash + "\n")
+
+                scan_result = scan_file(file_hash)
+                if not scan_result:
+                    continue
+
+                report_file = download_pdf(file_hash, file_name)
+                if report_file:
+                    report_files.append(report_file)
+
+                time.sleep(10)  # Wait before next file
+
+    if report_files:
+        send_email(report_files)
+
+if __name__ == "__main__":
+        main()
