@@ -23,3 +23,50 @@ This repository contains a Python-based automation script that interacts with th
 ```bash
 git clone https://github.com/borasezgin/mobsf-auto-scan.git
 cd mobsf-auto-scan
+```
+
+### 2. Configure Environment
+Create a .env file in the root directory and add the following:
+```bash
+API_KEY=your_mobsf_api_key
+UPLOAD_URL=http://localhost:8000/api/v1/upload
+SCAN_URL=http://localhost:8000/api/v1/scan
+PDF_URL=http://localhost:8000/api/v1/download_pdf
+DELETE_URL=http://localhost:8000/api/v1/delete_scan
+SMTP_SERVER=smtp.yourmail.com
+SMTP_PORT=587
+EMAIL_SENDER=sender@example.com
+EMAIL_RECIPIENT=recipient@example.com
+SCAN_DIRECTORY=apk_files
+REPORTS_DIRECTORY=reports
+```
+
+### 3. Prepare APK Files
+Place your APKs into the folder defined in SCAN_DIRECTORY (e.g., apk_files/).
+
+### 4. Run the Script
+```bash
+python mobsf_auto.py
+```
+## 📬 Output
+-    PDF reports saved under reports/{DD-MM-YYYY}/
+-    Email sent with all scan reports as attachments
+-    Console output for progress tracking
+
+## 💌 Email Template
+Each email includes:
+
+-    A summary message with the scan date
+-    All reports as attachments
+-    A styled HTML layout for clarity
+
+## 🧼 Old Scan Cleanup
+The script removes outdated scan hashes from MobSF before starting a new scan session.
+
+## 🔐 Security Tip
+Avoid hardcoding sensitive data. This project uses .env to safely handle API keys and email credentials.
+
+## 👩‍💻 Author
+Created by Bora Sezgin
+For feedback or contributions, feel free to open an issue or PR.
+
