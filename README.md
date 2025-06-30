@@ -16,7 +16,7 @@ This repository contains a Python-based automation script that interacts with th
 - A running instance of MobSF with API access
 - `requests`, `python-dotenv`, `smtplib`, and `email` libraries
 
-## 📦 Setup
+## 📦 🛠 Setup Instructions
 
 1. **Clone this repository**
 
@@ -24,15 +24,7 @@ This repository contains a Python-based automation script that interacts with th
 git clone https://github.com/borasezgin/mobsf-auto-scan.git
 cd mobsf-auto-scan
 
-
-🛠 Setup Instructions
-
-1. Clone the Repository
-
-git clone https://github.com/yourusername/mobsf-auto-scan.git
-cd mobsf-auto-scan
-
-2. Configure Environment
+2. **Configure Environment**
 
 Create a .env file in the root directory and add the following:
 
